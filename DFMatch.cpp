@@ -234,8 +234,8 @@ int prepare_tensor(hbDNNTensor *input_tensor, hbDNNTensor *output_tensor, hbDNNH
         HB_CHECK_SUCCESS(hbDNNGetOutputTensorProperties(&output[i].properties, dnn_handle, i), "hbDNNGetOutputTensorProperties failed");
         // Calculate the memory size of the output tensor and allocate cache memory
         int output_memSize = output[i].properties.alignedByteSize;
-        if (output_memSize == 4096) output_memSize = 307200;   // 307200 / 4096 = 75
-        if (output_memSize == 1024) output_memSize = 78643200; // 78643200 / 1024 = 76800
+        // if (output_memSize == 4096) output_memSize = 307200;   // 307200 / 4096 = 75
+        // if (output_memSize == 1024) output_memSize = 78643200; // 78643200 / 1024 = 76800
         HB_CHECK_SUCCESS(hbUCPMallocCached(&output[i].sysMem, output_memSize, 0), "hbUCPMallocCached failed");
 
         // Show how to get output name
@@ -478,6 +478,7 @@ int infer_s100_lg(std::vector<cv::Point2f> &keypoint_1, Eigen::MatrixXd &desc_1,
     {
         auto kpts1 = NormalizeKeypoints(keypoint_1, img_height, img_width);
         auto kpts2 = NormalizeKeypoints(keypoint_2, img_height, img_width);
+        std::cout << "=> kpts1 size: " << kpts1.size() << ", kpts2 size: " << kpts2.size() << std::endl;
         float *kpts1_data = new float[kpts1.size() * 2];
         float *kpts2_data = new float[kpts2.size() * 2];
         for (size_t i = 0; i < kpts1.size(); ++i)
@@ -541,13 +542,13 @@ int infer_s100_lg(std::vector<cv::Point2f> &keypoint_1, Eigen::MatrixXd &desc_1,
 
         hbUCPSchedParam infer_ctrl_param;
         HB_UCP_INITIALIZE_SCHED_PARAM(&infer_ctrl_param);
-        HB_CHECK_SUCCESS(dnn_infer(&task_handle, &output, input_tensors.data(), dnn_handle_df, &infer_ctrl_param), "dnn_infer failed");
+        HB_CHECK_SUCCESS(dnn_infer(&task_handle, &output, input_tensors.data(), dnn_handle_lg, &infer_ctrl_param), "dnn_infer failed");
         // wait task done
         HB_CHECK_SUCCESS(hbUCPWaitTaskDone(task_handle, 0), "hbUCPWaitTaskDone failed");
     }
     auto t2 = std::chrono::steady_clock::now();
     auto time_used = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count() * 1000;
-    std::cout << "\033[31m" << "lightglue infer Time:" << time_used << "\033[0m" << std::endl;
+    std::cout << "\033[31m" << "=> lightglue infer Time: " << time_used << "ms\033[0m" << std::endl;
 
     // ==================================================== do postprocess with output data ===============================
     // Step5: do postprocess with output data
@@ -559,12 +560,12 @@ int infer_s100_lg(std::vector<cv::Point2f> &keypoint_1, Eigen::MatrixXd &desc_1,
         }
 
         int *shape = output->properties.validShape.dimensionSize;
-        int tensor_len = shape[0] * shape[1] * shape[2] * shape[3];
-        std::cout << "=> lg tensor 0 len " << tensor_len << ", shape " << shape[0] << " * " << shape[1] << " *  " << shape[2] << " *  " << shape[3] << std::endl;
+        int tensor_len = shape[0] * shape[1];
+        std::cout << "=> lg tensor 0 len " << tensor_len << ", shape " << shape[0] << " * " << shape[1] << std::endl;
 
         int *shape_1 = output_tensors[1].properties.validShape.dimensionSize;
-        int tensor_len_1 = shape_1[0] * shape_1[1] * shape_1[2] * shape_1[3];
-        std::cout << "=> lg-tensor 1 len " << tensor_len_1 << ", shape " << shape_1[0] << " * " << shape_1[1] << " *  " << shape_1[2] << " *  " << shape_1[3] << std::endl;
+        int tensor_len_1 = shape_1[0];
+        std::cout << "=> lg tensor 1 len " << tensor_len_1 << ", shape " << shape_1[0] << std::endl;
 
         auto matches = reinterpret_cast<int64_t *>(output_tensors[0].sysMem.virAddr);
         auto scores = reinterpret_cast<float *>(output_tensors[1].sysMem.virAddr);
@@ -704,7 +705,7 @@ int main(int argc, char *argv[])
         std::string img_match_vis_path = img_match_vis_name + "match__" + std::to_string(i) + "__" + std::to_string(i + 1) + ".png";
         std::cout << "=> save result to: " << img_match_vis_path << std::endl;
         cv::imwrite(img_match_vis_path, img_hstack);
-        break;
+        // break;
     }
 
     std::cout << "-+ ================== End ======================" << std::endl;
