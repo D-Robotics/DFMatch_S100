@@ -234,6 +234,8 @@ int prepare_tensor(hbDNNTensor *input_tensor, hbDNNTensor *output_tensor, hbDNNH
         HB_CHECK_SUCCESS(hbDNNGetOutputTensorProperties(&output[i].properties, dnn_handle, i), "hbDNNGetOutputTensorProperties failed");
         // Calculate the memory size of the output tensor and allocate cache memory
         int output_memSize = output[i].properties.alignedByteSize;
+        if (output_memSize == 4096) output_memSize = 307200;   // 307200 / 4096 = 75
+        if (output_memSize == 1024) output_memSize = 78643200; // 78643200 / 1024 = 76800
         HB_CHECK_SUCCESS(hbUCPMallocCached(&output[i].sysMem, output_memSize, 0), "hbUCPMallocCached failed");
 
         // Show how to get output name
@@ -263,7 +265,7 @@ int infer_s100_dfeat(cv::Mat &bgr_mat, std::pair<std::vector<cv::Point2f>, Eigen
             HB_CHECK_SUCCESS(hbDNNGetModelHandle(&dnn_handle_df, packed_dnn_handle_df, model_name_list_df[0]), "hbDNNGetModelHandle failed");
         }
         // Show how to get dnn version
-        std::cout << "=> Load Moldel:" << model_name << "success, DNN runtime version: " << hbDNNGetVersion() << std::endl;
+        std::cout << "=> Load Moldel:" << model_name << " success, DNN runtime version: " << hbDNNGetVersion() << std::endl;
     }
 
     // ==================================================== prepare input and output tensor ===============================
@@ -443,7 +445,7 @@ int infer_s100_lg(std::vector<cv::Point2f> &keypoint_1, Eigen::MatrixXd &desc_1,
     {
         flag_init_lg = true;
 
-        std::string model_name = "../lg_dfeat.bin";
+        std::string model_name = "../lg.hbm";
 
         auto modelFileName = model_name.c_str();
         int model_count = 0;
@@ -454,7 +456,7 @@ int infer_s100_lg(std::vector<cv::Point2f> &keypoint_1, Eigen::MatrixXd &desc_1,
             HB_CHECK_SUCCESS(hbDNNGetModelHandle(&dnn_handle_lg, packed_dnn_handle_lg, model_name_list_lg[0]), "hbDNNGetModelHandle failed");
         }
         // Show how to get dnn version
-        std::cout << "=> Load Moldel:" << model_name << "success, DNN runtime version: " << hbDNNGetVersion() << std::endl;
+        std::cout << "=> Load Moldel:" << model_name << " success, DNN runtime version: " << hbDNNGetVersion() << std::endl;
     }
 
     // ==================================================== prepare input and output tensor ===============================
@@ -497,20 +499,20 @@ int infer_s100_lg(std::vector<cv::Point2f> &keypoint_1, Eigen::MatrixXd &desc_1,
         float *desc2 = desc_2_float_trans.data();
 
         int *kp1_shape = input_tensors[0].properties.validShape.dimensionSize;
-        int kp1_tensor_len = kp1_shape[0] * kp1_shape[1] * kp1_shape[2] * kp1_shape[3];
-        std::cout << "=> kp1 tensor len " << kp1_tensor_len << ", shape " << kp1_shape[0] << " * " << kp1_shape[1] << " *  " << kp1_shape[2] << " *  " << kp1_shape[3] << std::endl;
+        int kp1_tensor_len = kp1_shape[0] * kp1_shape[1] * kp1_shape[2];
+        std::cout << "=> kp1 tensor len " << kp1_tensor_len << ", shape " << kp1_shape[0] << " * " << kp1_shape[1] << " *  " << kp1_shape[2] << std::endl;
 
         int *kp2_shape = input_tensors[1].properties.validShape.dimensionSize;
-        int kp2_tensor_len = kp2_shape[0] * kp2_shape[1] * kp2_shape[2] * kp2_shape[3];
-        std::cout << "=> kp2 tensor len " << kp2_tensor_len << ", shape " << kp2_shape[0] << " * " << kp2_shape[1] << " *  " << kp2_shape[2] << " *  " << kp2_shape[3] << std::endl;
+        int kp2_tensor_len = kp2_shape[0] * kp2_shape[1] * kp2_shape[2];
+        std::cout << "=> kp2 tensor len " << kp2_tensor_len << ", shape " << kp2_shape[0] << " * " << kp2_shape[1] << " *  " << kp2_shape[2] << std::endl;
 
         int *desc1_shape = input_tensors[2].properties.validShape.dimensionSize;
-        int desc1_tensor_len = desc1_shape[0] * desc1_shape[1] * desc1_shape[2] * desc1_shape[3];
-        std::cout << "=> desc1 tensor len" << desc1_tensor_len << ", shape " << desc1_shape[0] << " * " << desc1_shape[1] << " *  " << desc1_shape[2] << " *  " << desc1_shape[3] << std::endl;
+        int desc1_tensor_len = desc1_shape[0] * desc1_shape[1] * desc1_shape[2];
+        std::cout << "=> desc1 tensor len " << desc1_tensor_len << ", shape " << desc1_shape[0] << " * " << desc1_shape[1] << " *  " << desc1_shape[2] << std::endl;
 
         int *desc2_shape = input_tensors[3].properties.validShape.dimensionSize;
-        int desc2_tensor_len = desc2_shape[0] * desc2_shape[1] * desc2_shape[2] * desc2_shape[3];
-        std::cout << "=> desc2 tensor len " << desc2_tensor_len << ", shape " << desc2_shape[0] << " * " << desc2_shape[1] << " *  " << desc2_shape[2] << " *  " << desc2_shape[3] << std::endl;
+        int desc2_tensor_len = desc2_shape[0] * desc2_shape[1] * desc2_shape[2];
+        std::cout << "=> desc2 tensor len " << desc2_tensor_len << ", shape " << desc2_shape[0] << " * " << desc2_shape[1] << " *  " << desc2_shape[2] << std::endl;
 
         auto data_kp1 = input_tensors[0].sysMem.virAddr;
         memcpy(data_kp1, kpts1_data, kp1_tensor_len * sizeof(float));
@@ -662,7 +664,7 @@ int main(int argc, char *argv[])
 
         std::cout << "-+ ================== LightGlue ================" << std::endl;
         std::vector<cv::Point2f> match_pt_1, match_pt_2;
-        // infer_s100_lg(dfeat_result_1.first, dfeat_result_1.second, dfeat_result_2.first, dfeat_result_2.second, match_pt_1, match_pt_2);
+        infer_s100_lg(dfeat_result_1.first, dfeat_result_1.second, dfeat_result_2.first, dfeat_result_2.second, match_pt_1, match_pt_2);
 
         cv::Mat img_hstack;
         cv::hconcat(bgr_mat_1, bgr_mat_2, img_hstack);
@@ -702,7 +704,7 @@ int main(int argc, char *argv[])
         std::string img_match_vis_path = img_match_vis_name + "match__" + std::to_string(i) + "__" + std::to_string(i + 1) + ".png";
         std::cout << "=> save result to: " << img_match_vis_path << std::endl;
         cv::imwrite(img_match_vis_path, img_hstack);
-        // break;
+        break;
     }
 
     std::cout << "-+ ================== End ======================" << std::endl;
