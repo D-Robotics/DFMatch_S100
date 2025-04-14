@@ -422,6 +422,8 @@ hbUCPTaskHandle_t dnn_handle_lg;
 const char **model_name_list_lg;
 bool flag_init_lg = false;
 
+float match_score_th = 0.1f;
+
 std::vector<cv::Point2f> NormalizeKeypoints(std::vector<cv::Point2f> kpts, int h, int w)
 {
     cv::Size size(w, h);
@@ -572,7 +574,7 @@ int infer_s100_lg(std::vector<cv::Point2f> &keypoint_1, Eigen::MatrixXd &desc_1,
 
         for (int i = 0; i < tensor_len_1; i++)
         {
-            if (scores[i] > 0.1)
+            if (scores[i] > match_score_th)
             {
                 match_kp_1.push_back(keypoint_1[matches[i * 2]]);
                 match_kp_2.push_back(keypoint_2[matches[i * 2 + 1]]);
